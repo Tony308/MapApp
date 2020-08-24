@@ -3,6 +3,7 @@ import {Card, CardText, CardTitle, Form, Label, FormGroup, ButtonToggle} from 'r
 import { Map, TileLayer, Marker, Popup } from 'react-leaflet'
 import L from 'leaflet';
 import axios from 'axios';
+import joi from 'joi';
 import './App.css';
 
 var myIcon = L.icon({
@@ -12,23 +13,79 @@ var myIcon = L.icon({
     popupAnchor: [0, -41],
 });
 
+const schema = joi.object({
+    name: joi.string().alphanum().min(1).max(100).required(),
+    message: joi.string().min(1).max(500).required()
+});
+
+const API_URL = window.location.hostname === 'localhost' ? 'http://localhost:5000/api/v1/messages' : 'prod URL'
+
 class App extends Component {
     state = {
         location: {
             lat: 51.505,
             lng: -0.09,
         },
+        userMessage: {
+            name: '',
+            message: ''
+        },
         hasUser20: false,
         zoom: 1,
+        sendingMessage: false,
+        sentMessage: false
     }
-    
-    componentDidMount() {
-        this.updateUserLocation()
+
+    handleChange = (e) => {
+        const {name, value} = e.target;
+        this.setState(prevState => ({
+            userMessage: {
+                ...prevState.userMessage,
+                [name]: value,
+            }
+        }))
+    }
+
+    formIsValid() {
+        const userMessage = {
+            name: this.state.userMessage.name,
+            message: this.state.userMessage.message
+        }
+        const result = schema.validate(userMessage);
+        return !result.error &&  this.state.hasUser20
     }
 
     formSubmitted = (e) => {
         e.preventDefault();
-        console.log(this.state.userMessage); 
+        if (this.formIsValid()) {
+            this.setState({
+                sendingMessage: true
+            });
+
+            fetch(API_URL, {
+                method: 'POST',
+                headers: {
+                    'content-type': 'application/json',
+                },
+                body: JSON.stringify({
+                    name: this.state.userMessage.name,
+                    message: this.state.userMessage.message,
+                    latitude: this.state.location.lat,
+                    longitude: this.state.location.lng
+                })
+            })
+            .then(res => res.json())
+            .then(message => {
+                console.log(message);
+                setTimeout(() => {
+                    this.setState({
+                        sendingMessage: false,
+                        sentMessage: true
+                    })
+                }, 1000);
+            })
+            .catch(err => console.log(err))
+        }
     }
 
     updateUserLocation() {
@@ -66,15 +123,9 @@ class App extends Component {
 
         })
     }
-    
-    handleChange = (e) => {
-        e.persist();
-        this.setState(prevState => ({
-            userMessage: {
-                ...prevState.userMessage,
-                [e.target.name]: e.target.value,
-            }
-        }))
+
+    componentDidMount() {
+        this.updateUserLocation()
     }
 
     render() {
@@ -101,17 +152,24 @@ class App extends Component {
                     <CardTitle>Welcome to Hell where the CSS don't ***king work</CardTitle>
                     <CardText>Leave a message with your location!</CardText>
                     <CardText>Thanks for dropping by!</CardText>
-                    <Form onSubmit={this.formSubmitted}>
-                        <FormGroup>
-                            <Label for='name'>Name:</Label> <br/>
-                            <input onChange={this.handleChange} type='text' name='name' id='name' placeholder='Enter your name' />
-                        </FormGroup>
-                        <FormGroup>
-                            <Label for="message">Message:</Label><br/>
-                            <textarea onChange={this.handleChange} name='message' id='message' placeholder='Enter a message' />
-                        </FormGroup>
-                        <ButtonToggle type='submit' color="info" disabled={!this.state.hasUser20} >Send</ButtonToggle>
-                    </Form>
+                    {
+                        !this.state.sendingMessage && !this.state.sentMessage ? 
+                        <Form onSubmit={this.formSubmitted}>
+                            <FormGroup>
+                                <Label for='name'>Name:</Label> <br/>
+                                <input onChange={this.handleChange} type='text' name='name' id='name' placeholder='Enter your name' />
+                            </FormGroup>
+                            <FormGroup>
+                                <Label for="message">Message:</Label><br/>
+                                <textarea onChange={this.handleChange} name='message' id='message' placeholder='Enter a message' />
+                            </FormGroup>
+                            <ButtonToggle type='submit' color="info" disabled={!this.formIsValid()} >Send</ButtonToggle>
+                        </Form>
+                        :
+                        this.state.sendingMessage ? <img src='https://media.giphy.com/media/8rFvX2jLDn2vkVihUG/giphy.gif' />
+                        :
+                        <CardText>Thanks for submitting message.</CardText>
+                    }
                 </Card>
             </div>
             );

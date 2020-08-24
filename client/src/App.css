@@ -19,3 +19,7 @@ body .message-form {
     z-index: 999;
     border: 1px solid grey;
 }
+img {
+    width: 100%;
+    height: auto
+}
