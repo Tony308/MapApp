@@ -4,7 +4,6 @@
   "description": "Map App with Leafletjs & Reactjs",
   "private": true,
   "dependencies": {
-    "axios": "^0.20.0",
     "bootstrap": "^4.5.2",
     "joi": "^17.2.1",
     "leaflet": "^1.6.0",
