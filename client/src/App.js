@@ -1,9 +1,10 @@
 import React, {Component} from 'react';
-import {Card, CardText, CardTitle, Form, Label, FormGroup, ButtonToggle} from 'reactstrap';
 import { Map, TileLayer, Marker, Popup } from 'react-leaflet'
 import L from 'leaflet';
 import joi from 'joi';
 
+import MessageCard from './MessageCard';
+import {getMessages, getLocation, sendMessage} from './API'; 
 import './App.css';
 
 const myIcon = L.icon({
@@ -20,13 +21,10 @@ const otherLocales = L.icon({
     popupAnchor: [0, -40],
 });
 
-
 const schema = joi.object({
     name: joi.string().alphanum().min(1).max(100).required(),
     message: joi.string().min(1).max(500).required()
 });
-
-const API_URL = window.location.hostname === 'localhost' ? 'http://localhost:5000/api/v1/messages' : 'prod URL'
 
 class App extends Component {
     state = {
@@ -39,7 +37,8 @@ class App extends Component {
             message: ''
         },
         hasUser20: false,
-        zoom: 1,
+        zoom: 2,
+        showMessageForm: false,
         sendingMessage: false,
         sentMessage: false,
         messages: []
@@ -55,13 +54,14 @@ class App extends Component {
         }))
     }
 
-    formIsValid() {
+    formIsValid = () => {
         const userMessage = {
             name: this.state.userMessage.name,
             message: this.state.userMessage.message
-        }
+        };
+        
         const result = schema.validate(userMessage);
-        return !result.error &&  this.state.hasUser20
+        return !result.error && this.state.hasUser20;
     }
 
     formSubmitted = (e) => {
@@ -71,21 +71,15 @@ class App extends Component {
                 sendingMessage: true
             });
 
-            fetch(API_URL, {
-                method: 'POST',
-                headers: {
-                    'content-type': 'application/json',
-                },
-                body: JSON.stringify({
-                    name: this.state.userMessage.name,
-                    message: this.state.userMessage.message,
-                    latitude: this.state.location.lat,
-                    longitude: this.state.location.lng
-                })
-            })
-            .then(res => res.json())
-            .then(message => {
-                console.log(message);
+            const message = {
+                name: this.state.userMessage.name,
+                message: this.state.userMessage.message,
+                latitude: this.state.location.lat,
+                longitude: this.state.location.lng
+            }
+
+            sendMessage(message)
+            .then(res => {
                 this.setState({
                     sendingMessage: false,
                     sentMessage: true
@@ -96,72 +90,28 @@ class App extends Component {
                 this.setState({
                     sendingMessage: false,
                     sentMessage: false
-                })
+                }) 
             })
         }
     }
 
-    updateUserLocation() {
-        navigator.geolocation.getCurrentPosition(position => {
-            const lat  = position.coords.latitude
-            const lng = position.coords.longitude;
+    componentDidMount = () => {
+        
+        getLocation()
+        .then(location => {
             this.setState({
-                location: {
-                    lat: lat,
-                    lng: lng
-                },
-                hasUser20: true,
-                zoom: 9,
-                userMessage: {
-                    name: '',
-                    message: '',
-                }
+            location,
+            hasUser20: true,
+            zoom: 9
             })
-        },
-        () => {
-            console.log("Permission not given. Hacking their location");
-            fetch(`https://json.geoiplookup.io/`)
-            .then(res => res.json())
-            .then(res => {
-                this.setState({
-                    location: {
-                        lat: res.latitude,
-                        lng: res.longitude
-                    },
-                    hasUser20: true,
-                    zoom: 13
-                })
-            })
-            .catch(err => {
-                console.log(err);
-            });
         })
-    }
 
-    componentDidMount() {
-        this.updateUserLocation();
-
-        fetch(API_URL)
-        .then(res => res.json())
-        .then(messages => {
-            const haveSeenLocation = {};
-            messages = messages.reduce((all, message) => {
-                const key = `${message.latitude.toFixed(3)}${message.longitude.toFixed(3)}`;                
-                if (haveSeenLocation[key]) {
-                    haveSeenLocation[key].otherMessages = haveSeenLocation[key].otherMessages || [];
-                    haveSeenLocation[key].otherMessages.push(message);
-                  } else {
-                    haveSeenLocation[key] = message;
-                    all.push(message);
-                  }
-                  return all;
-            }, []);
-
+        getMessages()
+        .then((messages) => {
             this.setState({
                 messages
             });
-        })
-
+        });   
     }
 
     render() {
@@ -206,31 +156,15 @@ class App extends Component {
                             </Marker>
                          })
                     }
-                </Map>
-
-                <Card body className='message-form'>
-                    <CardTitle>Welcome to Hell where the CSS don't ***king work</CardTitle>
-                    <CardText>Leave a message with your location!</CardText>
-                    <CardText>Thanks for dropping by!</CardText>
-                    {
-                        !this.state.sendingMessage && !this.state.sentMessage ? 
-                        <Form onSubmit={this.formSubmitted}>
-                            <FormGroup>
-                                <Label for='name'>Name:</Label> <br/>
-                                <input onChange={this.handleChange} type='text' name='name' id='name' placeholder='Enter your name' />
-                            </FormGroup>
-                            <FormGroup>
-                                <Label for="message">Message:</Label><br/>
-                                <textarea onChange={this.handleChange} name='message' id='message' placeholder='Enter a message' />
-                            </FormGroup>
-                            <ButtonToggle type='submit' color="info" disabled={!this.formIsValid()} >Send</ButtonToggle>
-                        </Form>
-                        :
-                        this.state.sendingMessage ? <img src='https://media.giphy.com/media/8rFvX2jLDn2vkVihUG/giphy.gif' alt='loading' />
-                        :
-                        <CardText>Thanks for submitting message.</CardText>
-                    }
-                </Card>
+                </Map>                
+                <MessageCard 
+                    sendingMessage={this.state.sendingMessage}
+                    sentMessage={this.state.sentMessage}
+                    hasUser20={this.state.hasUser20}
+                    formSubmitted={this.formSubmitted}
+                    handleChange={this.handleChange}
+                    formIsValid={this.formIsValid}
+                />
             </div>
             );
         }
