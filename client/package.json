@@ -6,7 +6,7 @@
   "dependencies": {
     "bootstrap": "^4.5.2",
     "joi": "^17.2.1",
-    "leaflet": "^1.6.0",
+    "leaflet": "^1.7.1",
     "react": "^16.13.1",
     "react-dom": "^16.13.1",
     "react-leaflet": "^2.7.0",
@@ -36,8 +36,8 @@
   },
   "devDependencies": {
     "jest": "^24.9.0",
-    "@testing-library/jest-dom": "^4.2.4",
-    "@testing-library/react": "^9.5.0",
-    "@testing-library/user-event": "^7.2.1"
+    "@testing-library/jest-dom": "^5.11.4",
+    "@testing-library/react": "^11.0.2",
+    "@testing-library/user-event": "^12.1.3"
   }
 }
